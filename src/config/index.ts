@@ -4,6 +4,14 @@ export const CONK_PACKAGE =
   process.env.CONK_PACKAGE ||
   '0x6eca0063f930674f26a4a4593a7ef5ed487e21f31caafe74290ab5df88478cc6';
 
+// CONK_EVENTS_PACKAGE: the package whose event structs are used in emitted events.
+// In Sui's upgrade model, events always emit under the package that DEFINED the struct.
+// All CONK event structs were defined in v11 (0x734b...) and stay anchored there
+// even when v13 is the active call-dispatch package.
+export const CONK_EVENTS_PACKAGE =
+  process.env.CONK_EVENTS_PACKAGE ||
+  '0x734b19fa1696dec30f8cae38f1cdbf0ab5a12720735f7c7b0d4935cab31732cc'; // v11 — event definition anchor
+
 export const ABYSS_ID         = '0x075c8667d1780bdde01a8175cd458aa345b3f6e2a84c45b91f82b344a4325bd0';
 export const DRIFT_ID         = '0x9312b6837bb12381849b413636064cd8d56b6ef84bf891b3f756b3cbb6157fad';
 export const LIGHTHOUSE_REGISTRY = '0x5ee0f0a6ad1b89412a2e05def4f1e0ad6e606df3751c030e9601fd155b444e94';
@@ -23,19 +31,21 @@ export const PROTOCOL_READ_FEE = 0.001; // $0.001 USDC flat fee per read
 
 // ─── Verified event type strings (from protocol/sources/*.move) ─────────────
 // Format: PACKAGE::MODULE::STRUCT
+// NOTE: Uses CONK_EVENTS_PACKAGE (v11), not CONK_PACKAGE (v13).
+// Sui anchors event struct type IDs to the package that first defined them.
 export const EVENT_TYPES = {
   // cast.move → CastSounded { cast_id, vessel_id, hook(bytes), mode, duration, created_at, expires_at }
-  CAST_SOUNDED:       `${CONK_PACKAGE}::cast::CastSounded`,
+  CAST_SOUNDED:       `${CONK_EVENTS_PACKAGE}::cast::CastSounded`,
   // cast.move → CastRead { cast_id, read_count, read_at }  (no reader/fee in event)
-  CAST_READ:          `${CONK_PACKAGE}::cast::CastRead`,
+  CAST_READ:          `${CONK_EVENTS_PACKAGE}::cast::CastRead`,
   // drift.move → CastIndexed { cast_id, hook, vessel_tier, created_at, expires_at, mode }
-  CAST_INDEXED:       `${CONK_PACKAGE}::drift::CastIndexed`,
+  CAST_INDEXED:       `${CONK_EVENTS_PACKAGE}::drift::CastIndexed`,
   // drift.move → LighthouseIndexed { cast_id, lighthouse_id, birth_path, born_at }
-  LIGHTHOUSE_INDEXED: `${CONK_PACKAGE}::drift::LighthouseIndexed`,
+  LIGHTHOUSE_INDEXED: `${CONK_EVENTS_PACKAGE}::drift::LighthouseIndexed`,
   // cast.move → LighthouseBorn { cast_id, birth_path, read_count, born_at }
-  LIGHTHOUSE_BORN:    `${CONK_PACKAGE}::cast::LighthouseBorn`,
+  LIGHTHOUSE_BORN:    `${CONK_EVENTS_PACKAGE}::cast::LighthouseBorn`,
   // vessel.move → VesselLaunched { vessel_id, harbor_id, tier, launched_at, burn_after_cast }
-  VESSEL_LAUNCHED:    `${CONK_PACKAGE}::vessel::VesselLaunched`,
+  VESSEL_LAUNCHED:    `${CONK_EVENTS_PACKAGE}::vessel::VesselLaunched`,
 } as const;
 
 // Cast mode constants (from cast.move)
