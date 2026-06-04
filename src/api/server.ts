@@ -3,6 +3,7 @@ import cors from 'cors';
 import { brainRouter }     from './routes/brain.js';
 import { discoveryRouter } from './routes/discovery.js';
 import { queryRouter }     from './routes/query.js';
+import { graphRouter }     from './routes/graph.js';
 import { getAllWatermarks } from '../indexer/watermark.js';
 import { PORT }            from '../config/index.js';
 
@@ -36,6 +37,7 @@ export function createServer() {
 
   // ── Graph query API ────────────────────────────────────────────────────────
   app.use('/query', queryRouter);
+  app.use('/', graphRouter);
 
   // ── 404 handler ───────────────────────────────────────────────────────────
   app.use((_, res) => {

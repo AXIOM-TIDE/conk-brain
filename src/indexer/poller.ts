@@ -1,132 +1,70 @@
-/**
- * CONK Brain — Event Poller
- *
- * Watermark-based incremental sync of Sui events.
- * One poller per event type. Each poller:
- *   1. Reads its cursor from sync_cursors
- *   2. Fetches events since cursor (ascending, batched)
- *   3. Processes each event through its processor
- *   4. Updates the cursor after each batch
- *   5. Repeats on interval
- */
-
-import { queryEvents, type SuiCursor } from './sui-rpc.js';
 import { getWatermark, setWatermark } from './watermark.js';
-import { processCastSounded }      from './processors/cast-sounded.js';
-import { processCastRead }         from './processors/cast-read.js';
-import { processCastIndexed }      from './processors/cast-indexed.js';
-import { processLighthouseBorn, processLighthouseIndexed } from './processors/lighthouse-events.js';
-import { processVesselLaunched }   from './processors/vessel-launched.js';
-import { EVENT_TYPES, POLL_INTERVAL_MS, BATCH_SIZE } from '../config/index.js';
+import { ConkSuiSource } from './sources/conk-sui.js';
+import { processSoundEvent } from './processors/sound-event.js';
+import { processReadEvent } from './processors/read-event.js';
+import type { SourceProvider, EventProcessor, SourceEvent } from './source-provider.js';
+import { pool } from '../db/pool.js';
 
-type Processor = (event: any) => Promise<void>;
+const BATCH_SIZE = 50;
+const POLL_INTERVAL_MS = parseInt(process.env.POLL_INTERVAL_MS || '30000');
 
-interface PollerConfig {
-  name: string;
-  eventType: string;
-  processor: Processor;
-}
-
-const POLLERS: PollerConfig[] = [
-  // Primary: Cast published
-  { name: 'cast-sounded',       eventType: EVENT_TYPES.CAST_SOUNDED,       processor: processCastSounded },
-  // Primary: Cast read (tracks cumulative read counts)
-  { name: 'cast-read',          eventType: EVENT_TYPES.CAST_READ,          processor: processCastRead },
-  // Drift feed index (enriches casts with hook + tier from Drift's perspective)
-  { name: 'cast-indexed',       eventType: EVENT_TYPES.CAST_INDEXED,       processor: processCastIndexed },
-  // Lighthouse events
-  { name: 'lighthouse-born',    eventType: EVENT_TYPES.LIGHTHOUSE_BORN,    processor: processLighthouseBorn },
-  { name: 'lighthouse-indexed', eventType: EVENT_TYPES.LIGHTHOUSE_INDEXED, processor: processLighthouseIndexed },
-  // Vessel lifecycle
-  { name: 'vessel-launched',    eventType: EVENT_TYPES.VESSEL_LAUNCHED,    processor: processVesselLaunched },
+// ── SOURCE REGISTRY — add new chains here, never touch the loop ──────────────
+const SOURCES: SourceProvider[] = [
+  new ConkSuiSource(),
+  // new X402BaseSource(),  ← future
 ];
 
-async function runPoller(config: PollerConfig): Promise<void> {
-  const { name, eventType, processor } = config;
-  let cursor: SuiCursor | null = null;
+// ── PROCESSOR REGISTRY ────────────────────────────────────────────────────────
+const PROCESSORS: EventProcessor[] = [
+  { handles: ['cast_sounded', 'cast_indexed'], process: processSoundEvent },
+  { handles: ['cast_read'], process: processReadEvent },
+  {
+    handles: ['vessel_launched'],
+    process: async (e: SourceEvent) => {
+      const vesselId = e.payload.vessel_id as string || e.payload.id as string;
+      if (!vesselId) return;
+      await pool.query(`
+        INSERT INTO vessels (vessel_id, owner_address) VALUES ($1,'unknown')
+        ON CONFLICT (vessel_id) DO NOTHING
+      `, [vesselId]);
+    },
+  },
+  {
+    handles: ['lighthouse_born', 'lighthouse_indexed'],
+    process: async (e: SourceEvent) => {
+      const lhId = e.payload.lighthouse_id as string || e.payload.id as string;
+      if (!lhId) return;
+      await pool.query(`
+        INSERT INTO lighthouses (lighthouse_id, name, owner_address)
+        VALUES ($1,$2,'unknown') ON CONFLICT (lighthouse_id) DO NOTHING
+      `, [lhId, e.payload.name as string || null]);
+    },
+  },
+];
 
+async function pollOne(source: SourceProvider, eventType: string): Promise<void> {
+  const key = `${source.sourceId}:${eventType}`;
   try {
-    cursor = await getWatermark(eventType);
-  } catch (err: any) {
-    console.error(`[brain][${name}] Failed to read watermark:`, err.message);
-    return;
-  }
-
-  let currentCursor = cursor;
-  let totalProcessed = 0;
-  let hasMore = true;
-
-  while (hasMore) {
-    let result: Awaited<ReturnType<typeof queryEvents>>;
-    try {
-      result = await queryEvents(eventType, currentCursor, BATCH_SIZE);
-    } catch (err: any) {
-      console.error(`[brain][${name}] RPC error:`, err.message);
-      break;
-    }
-
-    const events = result.data;
-    if (events.length === 0) break;
-
-    for (const event of events) {
-      try {
-        await processor(event);
-      } catch (err: any) {
-        console.error(
-          `[brain][${name}] Error processing event ${event.id?.txDigest}:`,
-          err.message
-        );
-        // Continue — don't let one bad event block the whole batch
+    const cursor = await getWatermark(key);
+    let cur = cursor; let total = 0; let hasMore = true;
+    while (hasMore) {
+      const result = await source.fetchEvents(eventType, cur, BATCH_SIZE);
+      if (!result.events.length) break;
+      const procs = PROCESSORS.filter(p => p.handles.includes(eventType));
+      for (const ev of result.events) {
+        for (const p of procs) { try { await p.process(ev); } catch(err) { console.error(`[brain] proc error`, err); } }
       }
+      total += result.events.length;
+      if (result.nextCursor) cur = result.nextCursor;
+      hasMore = result.hasMore;
     }
-
-    totalProcessed += events.length;
-
-    if (result.nextCursor) {
-      currentCursor = result.nextCursor as SuiCursor;
-    }
-    hasMore = result.hasNextPage ?? false;
-
-    // Persist cursor after each batch to avoid reprocessing on restart
-    if (currentCursor && events.length > 0) {
-      try {
-        await setWatermark(eventType, currentCursor, events.length);
-      } catch (err: any) {
-        console.error(`[brain][${name}] Failed to save watermark:`, err.message);
-      }
-    }
-  }
-
-  if (totalProcessed > 0) {
-    console.log(`[brain][${name}] +${totalProcessed} events processed`);
-  }
+    if (cur && total > 0) { await setWatermark(key, cur, total); console.log(`[brain][${source.name}][${eventType}] +${total}`); }
+  } catch(err) { console.error(`[brain][${key}] poll error:`, err); }
 }
 
-async function runAllPollers(): Promise<void> {
-  // Run all pollers concurrently — each has its own watermark and is independent
-  const results = await Promise.allSettled(
-    POLLERS.map(p => runPoller(p))
-  );
-
-  for (let i = 0; i < results.length; i++) {
-    const result = results[i];
-    if (result.status === 'rejected') {
-      console.error(`[brain][poller:${POLLERS[i].name}] Fatal error:`, result.reason);
-    }
-  }
-}
-
-export function startPollers(): void {
-  console.log(`[brain] Starting ${POLLERS.length} event pollers (interval: ${POLL_INTERVAL_MS}ms)`);
-  for (const p of POLLERS) {
-    console.log(`[brain]   → ${p.name}: ${p.eventType}`);
-  }
-
-  // Run immediately on startup (catches up from last watermark)
-  runAllPollers().catch(err => console.error('[brain][pollers] Initial run error:', err));
-
-  // Then poll on interval
-  setInterval(() => {
-    runAllPollers().catch(err => console.error('[brain][pollers] Poll error:', err));
-  }, POLL_INTERVAL_MS);
+export async function startPollers(): Promise<void> {
+  const runAll = () => Promise.allSettled(SOURCES.flatMap(s => s.eventTypes().map(t => pollOne(s, t))));
+  console.log(`[brain] Starting ${SOURCES.length} source(s), ${SOURCES.flatMap(s=>s.eventTypes()).length} event type(s)`);
+  await runAll();
+  setInterval(runAll, POLL_INTERVAL_MS);
 }
