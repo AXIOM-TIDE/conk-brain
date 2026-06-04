@@ -44,9 +44,10 @@ export function createServer() {
     res.status(404).json({
       error:    'not_found',
       service:  'conk-brain',
-      endpoints: ['/health', '/brain.json', '/.well-known/conk', '/query/casts',
-                  '/query/vessels', '/query/lighthouses', '/query/similar',
-                  '/query/synapses', '/query/stats'],
+      endpoints: ['/health', '/brain.json', '/.well-known/conk',
+                  '/search?q=', '/traverse?start=', '/lighthouses',
+                  '/query/casts', '/query/vessels', '/query/lighthouses',
+                  '/query/similar', '/query/synapses', '/query/stats'],
     });
   });
 

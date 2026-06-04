@@ -18,6 +18,7 @@
 
 import { pool } from '../../db/pool.js';
 import { parseTimestamp } from '../sui-rpc.js';
+import { writeReadSynapse } from '../synapse-writer.js';
 
 export async function processCastRead(event: any): Promise<void> {
   const data = event.parsedJson as Record<string, unknown>;
@@ -59,4 +60,7 @@ export async function processCastRead(event: any): Promise<void> {
   `, [readCount, castId]);
 
   console.log(`[brain][cast-read] cast ${castId.slice(0, 14)} read #${readCount} tx=${txDigest.slice(0, 12)}`);
+
+  // Write synapse: reader's last cast → this cast (non-blocking; errors are logged not thrown)
+  writeReadSynapse(castId, txDigest).catch(() => {});
 }

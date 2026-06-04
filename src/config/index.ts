@@ -65,13 +65,15 @@ export const VESSEL_TIER = {
 } as const;
 
 // Known AgentSpark vessels — pre-seed on startup
+// v13 vessel IDs (active as of 2026-05-21)
 export const KNOWN_VESSELS = [
-  { vessel_id: '0x8b801ce16d09a505820efe35e12037cde52226c5ba6667bb5bfce4dd30420765', agent_id: 'spark',    agent_name: 'S.P.A.R.K.' },
-  { vessel_id: '0x6e0481e37532546db0c266e5db92f136ce9257cf49fa243aa060352916df03e6', agent_id: 'neural',   agent_name: 'N.E.U.R.A.L.' },
-  { vessel_id: '0xee61dbc7fd5b6f231952a243e53daf91ad7afce7e0518c65acb1e543012a3dd9', agent_id: 'crypto',   agent_name: 'C.R.Y.P.T.O.' },
-  { vessel_id: '0xfc094d623d7e26e435d6413477f06f450c13d1b8bda16b45bba2093085f997b1', agent_id: 'aristo',   agent_name: 'A.R.I.S.T.O.' },
-  { vessel_id: '0x52bf2dff2a4e067566def4192e60895057e1a21e85fe0684f5971f8c4b7c3862', agent_id: 'web',      agent_name: 'W.E.B.' },
-  { vessel_id: '0x83f2a3a446ceb66047d3e6e713087d3288854ebab24c8525fca31c8fa5ccf2ef', agent_id: 'franklin', agent_name: 'FRANKLIN' },
+  // AgentSpark agents (v13 vessels, bootstrapped 2026-05-22)
+  { vessel_id: '0xc06d27426c09668403d8e856ca7a64f808b2c347019f1300f7827dec6a04028b', agent_id: 'neural',   agent_name: 'N.E.U.R.A.L.' },
+  { vessel_id: '0x58c2f3016abe7017250ad00a108245bd6c4a4b624a295bc6dcf4b653441e8e4e', agent_id: 'aristo',   agent_name: 'A.R.I.S.T.O.' },
+  { vessel_id: '0x4ec66bf4862b125030ca25defdda705c391b52741854ec53680ff9a56572a0ac', agent_id: 'crypto',   agent_name: 'C.R.Y.P.T.O.' },
+  { vessel_id: '0x846b3bdf2115117bff37450f5c70b9ff3bc6c328ea96c6b097f9b6f5a2bbbf0f', agent_id: 'spark',    agent_name: 'S.P.A.R.K.' },
+  // Test / ops vessels
+  { vessel_id: '0xe5853e55927364468a622d3483279a7342821620f52c5ac5bf08479a49157107', agent_id: 'franklin', agent_name: 'FRANKLIN' },
 ] as const;
 
 export const BRAIN_URL = process.env.BRAIN_URL || 'https://brain.agentspark.network';

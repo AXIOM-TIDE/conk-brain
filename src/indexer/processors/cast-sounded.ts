@@ -19,6 +19,7 @@
 import { pool } from '../../db/pool.js';
 import { decodeHook, parseTimestamp } from '../sui-rpc.js';
 import { KNOWN_VESSELS } from '../../config/index.js';
+import { writeCoPublishSynapses, writeExplicitSynapsesFromHook } from '../synapse-writer.js';
 
 export async function processCastSounded(event: any): Promise<void> {
   const data = event.parsedJson as Record<string, unknown>;
@@ -69,4 +70,12 @@ export async function processCastSounded(event: any): Promise<void> {
 
   const agentLabel = known?.agent_name ?? vesselId.slice(0, 10);
   console.log(`[brain][cast-sounded] ${agentLabel} → cast ${castId.slice(0, 14)} mode=${mode} hook="${hook.slice(0, 60)}"`);
+
+  // Wire synapses (non-blocking — a synapse miss never kills indexing)
+  if (soundedAt) {
+    writeCoPublishSynapses(castId, soundedAt).catch(() => {});
+  }
+  if (hook) {
+    writeExplicitSynapsesFromHook(castId, hook).catch(() => {});
+  }
 }
