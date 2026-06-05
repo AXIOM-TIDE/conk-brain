@@ -66,14 +66,29 @@ export const VESSEL_TIER = {
 
 // Known AgentSpark vessels — pre-seed on startup
 // v13 vessel IDs (active as of 2026-05-21)
-export const KNOWN_VESSELS = [
+export const KNOWN_VESSELS: Array<{ vessel_id: string; agent_id: string; agent_name: string; owner_wallet?: string }> = [
   // AgentSpark agents (v13 vessels, bootstrapped 2026-05-22)
-  { vessel_id: '0xc06d27426c09668403d8e856ca7a64f808b2c347019f1300f7827dec6a04028b', agent_id: 'neural',   agent_name: 'N.E.U.R.A.L.' },
-  { vessel_id: '0x58c2f3016abe7017250ad00a108245bd6c4a4b624a295bc6dcf4b653441e8e4e', agent_id: 'aristo',   agent_name: 'A.R.I.S.T.O.' },
-  { vessel_id: '0x4ec66bf4862b125030ca25defdda705c391b52741854ec53680ff9a56572a0ac', agent_id: 'crypto',   agent_name: 'C.R.Y.P.T.O.' },
-  { vessel_id: '0x846b3bdf2115117bff37450f5c70b9ff3bc6c328ea96c6b097f9b6f5a2bbbf0f', agent_id: 'spark',    agent_name: 'S.P.A.R.K.' },
+  { vessel_id: '0xc06d27426c09668403d8e856ca7a64f808b2c347019f1300f7827dec6a04028b', agent_id: 'neural',   agent_name: 'N.E.U.R.A.L.', owner_wallet: '0x911847f42cc7ff8e1247fb11b4b15177ab1fbe1cd88bf52073f93cf484773517' },
+  { vessel_id: '0x58c2f3016abe7017250ad00a108245bd6c4a4b624a295bc6dcf4b653441e8e4e', agent_id: 'aristo',   agent_name: 'A.R.I.S.T.O.', owner_wallet: '0xe82cc80d2aad0821fd8e444971d88d1e556e3ef6a4611e58ca696a3c49f5f8d8' },
+  { vessel_id: '0x4ec66bf4862b125030ca25defdda705c391b52741854ec53680ff9a56572a0ac', agent_id: 'crypto',   agent_name: 'C.R.Y.P.T.O.', owner_wallet: '0x5a4057ca8650d9767c9f943197ed534021f03dc3730cc03f9fc1dc59b3ede063' },
+  { vessel_id: '0x846b3bdf2115117bff37450f5c70b9ff3bc6c328ea96c6b097f9b6f5a2bbbf0f', agent_id: 'spark',    agent_name: 'S.P.A.R.K.',    owner_wallet: '0x813b4a05c1908c7bca965e04daee7ac319e499342fc8dc9449e3ecaeabcb4d19' },
   // Test / ops vessels
   { vessel_id: '0xe5853e55927364468a622d3483279a7342821620f52c5ac5bf08479a49157107', agent_id: 'franklin', agent_name: 'FRANKLIN' },
-] as const;
+  // Buyer daemon vessel (Mac mini intelligence-buyer-daemon, launched 2026-06-04)
+  { vessel_id: '0x68377dc84cc5eb073df42d60df4365f7a144426549f3017d5c43221498a24785', agent_id: 'buyer', agent_name: 'BUYER', owner_wallet: '0x9f22950ac273e216cd8cb9d22af34402ae94c7900a7cd0aa9d9fe13dd1ee2087' },
+];
+
+// Wallet → vessel mapping. Used by synapse-writer to attribute reads to vessels
+// even before VesselLaunched events are indexed with owner_address.
+// Also includes the buyer daemon wallet (Mac mini cron, not a Railway agent).
+export const KNOWN_WALLETS: Record<string, string> = {
+  // AgentSpark agent wallets → their v13 vessel IDs
+  '0x911847f42cc7ff8e1247fb11b4b15177ab1fbe1cd88bf52073f93cf484773517': '0xc06d27426c09668403d8e856ca7a64f808b2c347019f1300f7827dec6a04028b', // NEURAL
+  '0xe82cc80d2aad0821fd8e444971d88d1e556e3ef6a4611e58ca696a3c49f5f8d8': '0x58c2f3016abe7017250ad00a108245bd6c4a4b624a295bc6dcf4b653441e8e4e', // ARISTO
+  '0x5a4057ca8650d9767c9f943197ed534021f03dc3730cc03f9fc1dc59b3ede063': '0x4ec66bf4862b125030ca25defdda705c391b52741854ec53680ff9a56572a0ac', // CRYPTO
+  '0x813b4a05c1908c7bca965e04daee7ac319e499342fc8dc9449e3ecaeabcb4d19': '0x846b3bdf2115117bff37450f5c70b9ff3bc6c328ea96c6b097f9b6f5a2bbbf0f', // SPARK
+  // Buyer daemon (Mac mini intelligence-buyer-daemon, launched 2026-06-04)
+  '0x9f22950ac273e216cd8cb9d22af34402ae94c7900a7cd0aa9d9fe13dd1ee2087': '0x68377dc84cc5eb073df42d60df4365f7a144426549f3017d5c43221498a24785',  // BUYER
+};
 
 export const BRAIN_URL = process.env.BRAIN_URL || 'https://brain.agentspark.network';

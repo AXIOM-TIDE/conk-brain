@@ -16,6 +16,7 @@ import { createServer }         from './api/server.js';
 import { startPollers }         from './indexer/poller.js';
 import { startRollupScheduler } from './analytics/rollups.js';
 import { runSynapseBackfill }   from './indexer/synapse-backfill.js';
+import { runVesselWalletPatch } from './indexer/vessel-wallet-patch.js';
 import { KNOWN_VESSELS }        from './config/index.js';
 
 async function main() {
@@ -48,7 +49,10 @@ async function main() {
   // 5. Start analytics rollups (every 5min)
   startRollupScheduler();
 
-  // 6. Backfill synapses for existing casts/reads (async, non-blocking)
+  // 6. Patch vessel owner_addresses from KNOWN_WALLETS (fast, idempotent)
+  await runVesselWalletPatch();
+
+  // 7. Backfill synapses for existing casts/reads (async, non-blocking)
   runSynapseBackfill().catch(err => {
     console.warn('[brain][backfill] Backfill error (non-fatal):', err.message);
   });

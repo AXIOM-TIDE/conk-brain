@@ -15,6 +15,7 @@
 
 import { pool } from '../db/pool.js';
 import { suiClient } from './sui-rpc.js';
+import { KNOWN_WALLETS } from '../config/index.js';
 
 // ─── Read-edge synapse ────────────────────────────────────────────────────────
 // Called after a CastRead event. Enriches cast_reads with reader address,
@@ -45,16 +46,24 @@ export async function writeReadSynapse(castId: string, txDigest: string): Promis
       [senderAddress, txDigest]
     );
 
-    // 3. Find the reader's vessel (vessel owner_address matches sender)
+    // 3. Find the reader's vessel (vessel owner_address matches sender, or KNOWN_WALLETS fallback)
+    let readerVesselId: string | null = null;
+
     const { rows: vesselRows } = await pool.query<{ vessel_id: string }>(
       `SELECT vessel_id FROM vessels WHERE owner_address = $1 LIMIT 1`,
       [senderAddress]
     );
-    if (!vesselRows.length) {
+    if (vesselRows.length) {
+      readerVesselId = vesselRows[0].vessel_id;
+    } else if (KNOWN_WALLETS[senderAddress]) {
+      // Wallet is known but vessel row not yet patched with owner_address — use config fallback
+      readerVesselId = KNOWN_WALLETS[senderAddress];
+    }
+
+    if (!readerVesselId) {
       // Reader isn't a known vessel — no edge to draw
       return;
     }
-    const readerVesselId = vesselRows[0].vessel_id;
 
     // 4. Find the reader's most recently published cast (their "voice" in the graph)
     const { rows: fromCastRows } = await pool.query<{ cast_id: string }>(
