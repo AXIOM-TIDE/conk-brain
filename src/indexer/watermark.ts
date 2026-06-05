@@ -2,7 +2,10 @@ import { pool } from '../db/pool.js';
 
 export async function getWatermark(key: string): Promise<string | null> {
   const { rows } = await pool.query('SELECT last_cursor FROM sync_cursors WHERE event_type = $1', [key]);
-  return rows[0]?.last_cursor ?? null;
+  const val = rows[0]?.last_cursor;
+  if (val === undefined || val === null) return null;
+  // JSONB columns are returned as JS objects by pg; normalize to JSON string for callers.
+  return typeof val === 'string' ? val : JSON.stringify(val);
 }
 
 export async function setWatermark(key: string, cursor: string, count: number): Promise<void> {
