@@ -2,17 +2,24 @@ import { SuiClient } from '@mysten/sui/client';
 import type { SourceProvider, FetchResult, SourceEvent } from '../source-provider.js';
 
 const SUI_RPC = process.env.SUI_RPC || 'https://fullnode.mainnet.sui.io:443';
-const CONK_PACKAGE = process.env.CONK_PACKAGE || '0x6eca0063f930674f26a4a4593a7ef5ed487e21f31caafe74290ab5df88478cc6';
 const suiClient = new SuiClient({ url: SUI_RPC });
+
+// CRITICAL: Event struct type IDs are ANCHORED to the ORIGIN package (v11 = 0x734b19fa).
+// All CONK event structs were first defined in v11. Even though v13 is the active
+// call-dispatch package, every emitted event has a type prefix of v11.
+// Using v13 here would return 0 events — this is the most common CONK gotcha.
+const EVENTS_PACKAGE =
+  process.env.CONK_EVENTS_PACKAGE ||
+  '0x734b19fa1696dec30f8cae38f1cdbf0ab5a12720735f7c7b0d4935cab31732cc'; // v11 — event anchor
 
 // Verified event type names from Move source (cast.move, drift.move, vessel.move)
 const TYPE_MAP: Record<string, string> = {
-  cast_sounded:       `${CONK_PACKAGE}::cast::CastSounded`,
-  cast_read:          `${CONK_PACKAGE}::cast::CastRead`,
-  cast_indexed:       `${CONK_PACKAGE}::drift::CastIndexed`,
-  lighthouse_born:    `${CONK_PACKAGE}::cast::LighthouseBorn`,
-  lighthouse_indexed: `${CONK_PACKAGE}::drift::LighthouseIndexed`,
-  vessel_launched:    `${CONK_PACKAGE}::vessel::VesselLaunched`,
+  cast_sounded:       `${EVENTS_PACKAGE}::cast::CastSounded`,
+  cast_read:          `${EVENTS_PACKAGE}::cast::CastRead`,
+  cast_indexed:       `${EVENTS_PACKAGE}::drift::CastIndexed`,
+  lighthouse_born:    `${EVENTS_PACKAGE}::cast::LighthouseBorn`,
+  lighthouse_indexed: `${EVENTS_PACKAGE}::drift::LighthouseIndexed`,
+  vessel_launched:    `${EVENTS_PACKAGE}::vessel::VesselLaunched`,
 };
 
 export class ConkSuiSource implements SourceProvider {

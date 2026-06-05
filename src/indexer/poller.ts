@@ -2,6 +2,7 @@ import { getWatermark, setWatermark } from './watermark.js';
 import { ConkSuiSource } from './sources/conk-sui.js';
 import { processSoundEvent } from './processors/sound-event.js';
 import { processReadEvent } from './processors/read-event.js';
+import { processVesselLaunched } from './processors/vessel-launched.js';
 import type { SourceProvider, EventProcessor, SourceEvent } from './source-provider.js';
 import { pool } from '../db/pool.js';
 
@@ -20,14 +21,7 @@ const PROCESSORS: EventProcessor[] = [
   { handles: ['cast_read'], process: processReadEvent },
   {
     handles: ['vessel_launched'],
-    process: async (e: SourceEvent) => {
-      const vesselId = e.payload.vessel_id as string || e.payload.id as string;
-      if (!vesselId) return;
-      await pool.query(`
-        INSERT INTO vessels (vessel_id, owner_address) VALUES ($1,'unknown')
-        ON CONFLICT (vessel_id) DO NOTHING
-      `, [vesselId]);
-    },
+    process: processVesselLaunched,
   },
   {
     handles: ['lighthouse_born', 'lighthouse_indexed'],
